@@ -1,0 +1,23 @@
+name: authenticator
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: authenticator_db
+    restart: "on-failure:5"
+    ports:
+      - "${DATABASE_POST:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/18/docker
+    environment:
+      POSTGRES_USER: ${DATABASE_USER}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      POSTGRES_DB: ${DATABASE_NAME}
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
