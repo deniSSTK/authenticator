@@ -14,7 +14,13 @@ Authenticator is a B2B2C two-factor authentication (2FA) project based on RFC 62
 - **Backend** - Rust (2024 edition), Axum 0.8, and Tokio.
 - **Database** - PostgreSQL 18 and SQLx 0.9.1.
 - **Cryptography** - Argon2id for password hashing, AES-256-GCM for envelope encryption, HMAC-SHA256 for webhook signatures, and `totp-rs` for TOTP are planned.
-- **Frontend** - An Angular single-page application is planned.
+- **Frontend** - Angular.
+
+## Planned frontend
+
+1. **Application dashboard** - Manage the applications you own, their settings, and their API keys.
+2. **Personal code vault** - View your own current TOTP codes for linked services.
+3. **Authentication** - Create an account and sign in to access the dashboard and your codes.
 
 ## Repository structure
 
