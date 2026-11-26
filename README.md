@@ -2,19 +2,21 @@
 
 Authenticator is a B2B2C two-factor authentication (2FA) project based on RFC 6238. The planned web client and B2B API let third-party services connect user accounts through one-time links and verify time-based one-time passwords (TOTP).
 
-## Project status as of November 23, 2026
+## Project status
 
 - **Backend** - The Axum server reads configuration from environment variables, opens a PostgreSQL connection pool at startup, and serves `GET /healthz`. The health endpoint returns `{"status":"ok"}` as a liveness check.
 - **Authentication** - The `register`, `login`, `refresh`, and `me` routes are wired with typed response DTOs and shared JSON errors. They return `501 Not Implemented` after any initial input checks. An SQL insert for users exists, and the registration service has draft types. Password hashing, token issuance, and session management are pending.
 - **Database** - Docker Compose configures PostgreSQL 18. The initial migration defines `users`, `user_sessions`, `applications`, `api_keys`, and `totp_enrollments`. The `connect_sessions` table and `applications.webhook_secret` are planned.
-- **Integrations and frontend** - TOTP verification, enrollment, webhooks, and the Angular client are planned.
+- **Frontend** - `frontend/` is a placeholder for the planned Angular client. The DTOs below are intended for frontend mocks.
+- **Integration demo** - `integration-demo/` is a Git submodule for a planned example application. Its pinned revision currently contains a license only.
+- **Integrations** - TOTP verification, enrollment, and webhooks are planned.
 
 ## Technology stack
 
 - **Backend** - Rust (2024 edition), Axum 0.8, and Tokio.
 - **Database** - PostgreSQL 18 and SQLx 0.9.1.
 - **Cryptography** - Argon2id for password hashing, AES-256-GCM for envelope encryption, HMAC-SHA256 for webhook signatures, and `totp-rs` for TOTP are planned.
-- **Frontend** - Angular.
+- **Frontend** - Angular is planned.
 
 ## Planned frontend
 
@@ -26,11 +28,16 @@ Authenticator is a B2B2C two-factor authentication (2FA) project based on RFC 62
 
 ```text
 authenticator/
-├── .env.example              # Local PostgreSQL settings for Docker Compose
+├── .env.example              # Docker Compose database settings
+├── .gitignore
+├── .gitmodules               # Integration demo submodule configuration
 ├── docker-compose.yml        # Local PostgreSQL service
+├── LICENSE
+├── README.md
 ├── backend/
 │   ├── .env.example          # Backend environment settings
 │   ├── Cargo.toml
+│   ├── Cargo.lock
 │   ├── migrations/           # PostgreSQL schema migrations
 │   └── src/
 │       ├── api.rs             # Shared HTTP response and error exports
@@ -41,13 +48,25 @@ authenticator/
 │       │   ├── http/          # Auth routes and request and response DTOs
 │       │   ├── repo.rs        # SQL queries for authentication
 │       │   └── service.rs     # Draft registration service types
-│       ├── config.rs         # Environment configuration
-│       ├── state.rs          # Shared PostgreSQL pool
-│       └── main.rs           # HTTP server entry point
-└── README.md
+│       ├── config.rs          # Environment configuration
+│       ├── state.rs           # Shared PostgreSQL pool
+│       └── main.rs            # HTTP server entry point
+├── frontend/
+│   └── .gitkeep              # Placeholder for the Angular client
+└── integration-demo/         # Git submodule for an example integration
 ```
 
+Initialize the integration demo after cloning, or clone with `git clone --recurse-submodules <repository-url>`.
+
+```bash
+git submodule update --init --recursive
+```
+
+The demo is maintained in [authenticator-integration-demo](https://github.com/deniSSTK/authenticator-integration-demo). Its implementation and startup instructions will live in that repository.
+
 ## Planned architecture and security
+
+The following design describes planned behavior. Authentication, encryption, TOTP, and webhook delivery are not yet implemented.
 
 1. **User plane (`/v1/auth/*`, `/v1/applications/*`, `/v1/vault/*`)** - The browser sends a short-lived JWT access token and a rotating refresh token in `HttpOnly` cookies scoped to their respective routes.
 2. **B2B runtime plane (`/v1/totp/*`)** - Third-party services authenticate server-to-server requests with `X-API-Key`. The API checks the key's scopes for each operation.
@@ -60,7 +79,7 @@ authenticator/
 
 ### TOTP replay protection
 
-TOTP codes use a 30-second time step by default. After verifying a code, the backend uses an atomic PostgreSQL update to accept the matching step only if it is newer than `last_verified_step` for that enrollment.
+TOTP codes will use a 30-second time step by default. After verifying a code, the backend can use an atomic PostgreSQL update to accept the matching step only if it is newer than `last_verified_step` for that enrollment.
 
 ```sql
 UPDATE totp_enrollments
@@ -84,7 +103,7 @@ The third-party service identifies the user by its own `external_user_id`. The a
 
 ## Database schema
 
-- **`users`** - Authenticator accounts (`id`, `EMAIL`, `password_hash`, `status`).
+- **`users`** - Authenticator accounts (`id`, `email`, `password_hash`, `status`).
 - **`user_sessions`** - Client sessions (`id`, `user_id`, `refresh_token_hash`, `device_name`, `ip_address`, `expires_at`).
 - **`applications`** - Registered third-party services (`id`, `owner_user_id`, `issuer_name`, `webhook_url`, `is_active`). The `webhook_secret` field is planned.
 - **`api_keys`** - Scoped B2B API keys (`id`, `application_id`, `key_prefix`, `key_hash`, `scopes`, `expires_at`, `revoked_at`, `last_used_at`).
@@ -93,7 +112,7 @@ The third-party service identifies the user by its own `external_user_id`. The a
 
 ## API contract for frontend mocks
 
-Use the DTOs below for Angular types and mock responses. The Rust server currently implements only `GET /healthz`. The wired auth routes are stubs, and their draft DTOs may differ from this planned contract.
+Use the DTOs below for Angular types and mock responses. The Rust server currently implements only `GET /healthz`. The wired auth routes are stubs and do not yet implement these DTOs, cookies, or error codes. Valid auth requests return `501` with `{ "code": "not_implemented" }`; some initial validation failures return `422` with `{ "code": "invalid_input" }`.
 
 ### Shared formats
 
@@ -371,7 +390,7 @@ For frontend development, the mock can simulate the session in memory. Include `
 
 ## Local development
 
-Use Rust and Cargo, Docker Compose, and the SQLx CLI with PostgreSQL support. From the repository root, create the local environment files and start PostgreSQL. If the files already exist, keep your local settings and make sure the credentials and port match `DATABASE_URL`.
+Use Rust and Cargo, Docker Compose, and the SQLx CLI with PostgreSQL support. The server requires PostgreSQL at startup and reads `DATABASE_URL` and `KEY_ENCRYPTION_KEY` from the environment. `BIND_ADDR` defaults to `127.0.0.1:3000`. The example key is a placeholder for the planned encryption feature. From the repository root, create the local environment files and start PostgreSQL. If the files already exist, keep your local settings and make sure the credentials and port match `DATABASE_URL`.
 
 ```bash
 test -f .env || cp .env.example .env
@@ -390,8 +409,10 @@ sqlx migrate run
 cargo run
 ```
 
-With the default bind address, check the server from another terminal.
+With the default bind address, check the server from another terminal. The current response is `{ "status": "ok" }`; the response envelope in the planned contract has not been implemented.
 
 ```bash
 curl http://127.0.0.1:3000/healthz
 ```
+
+The Compose file currently reads the optional host port from `DATABASE_POST`, defaulting to `5432`. If you set it, update the port in `backend/.env` as well.
