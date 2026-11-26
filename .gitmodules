@@ -1,0 +1,3 @@
+[submodule "integration-demo"]
+	path = integration-demo
+	url = https://github.com/deniSSTK/authenticator-integration-demo.git
